@@ -131,12 +131,36 @@ void register_signal_handlers(ctx_t * ctx) {
     signal(SIGPIPE, cleanup_on_signal);
 }
 
+int open_pipe(ctx_t * ctx, int mode) {
+    int fd = open(ctx->pipe_path, mode);
+    if (fd == -1) {
+        log_error("could not open pipe at '%s': %s\n", ctx->pipe_path, strerror(errno));
+        exit_fail(ctx);
+    }
+
+    struct stat stat;
+    if (fstat(fd, &stat) == -1) {
+        log_error("could not open pipe at '%s': %s\n", ctx->pipe_path, strerror(errno));
+        close(fd);
+        exit_fail(ctx);
+    }
+
+    if (!S_ISFIFO(stat.st_mode)) {
+        log_error("could not open pipe at '%s': File is not a named pipe\n", ctx->pipe_path);
+        close(fd);
+        exit_fail(ctx);
+    }
+
+    return fd;
+}
+
 void create_out_pipe(ctx_t * ctx) {
-    ctx->pipe_out_fd = mkfifo(ctx->pipe_path, 0666);
-    if (ctx->pipe_out_fd == -1) {
+    if (mkfifo(ctx->pipe_path, 0666) == -1) {
         log_error("could not create pipe at '%s': %s\n", ctx->pipe_path, strerror(errno));
         exit_fail(ctx);
     }
+
+    ctx->pipe_out_fd = open_pipe(ctx, O_RDWR);
 
     int flags = fcntl(ctx->pipe_out_fd, F_GETFL);
     flags |= O_NONBLOCK;
@@ -144,22 +168,7 @@ void create_out_pipe(ctx_t * ctx) {
 }
 
 void open_in_pipe(ctx_t * ctx) {
-    ctx->pipe_in_fd = open(ctx->pipe_path, O_WRONLY);
-    if (ctx->pipe_in_fd == -1) {
-        log_error("could not open pipe at '%s': %s\n", ctx->pipe_path, strerror(errno));
-        exit_fail(ctx);
-    }
-
-    struct stat stat;
-    if (fstat(ctx->pipe_in_fd, &stat) == -1) {
-        log_error("could not open pipe at '%s': %s\n", ctx->pipe_path, strerror(errno));
-        exit_fail(ctx);
-    }
-
-    if (!S_ISFIFO(stat.st_mode)) {
-        log_error("could not open pipe at '%s': File is not a named pipe\n", ctx->pipe_path);
-        exit_fail(ctx);
-    }
+    ctx->pipe_in_fd = open_pipe(ctx, O_WRONLY);
 
     int flags = fcntl(STDIN_FILENO, F_GETFL);
     flags |= O_NONBLOCK;
@@ -196,18 +205,13 @@ void event_loop(ctx_t * ctx) {
 
     bool out_closed = !ctx->out;
     bool in_closed = !ctx->in;
-    while (poll(fds, 2, -1) >= 0 && (!out_closed || !in_closed)) {
+    while ((!out_closed || !in_closed) && poll(fds, 2, -1) >= 0) {
         if (fds[0].revents & POLLIN) {
-            fprintf(stderr, "debug: reading from pipe to stdout\n");
-            if (!pipe_data(ctx, ctx->pipe_out_fd, STDOUT_FILENO, "pipe output")) {
-                fds[0].fd = -1;
-                out_closed = true;
-            }
+            pipe_data(ctx, ctx->pipe_out_fd, STDOUT_FILENO, "pipe output");
             fds[0].revents = 0;
         }
 
         if (fds[1].revents & POLLIN) {
-            fprintf(stderr, "debug: writing from stdin to pipe\n");
             if (!pipe_data(ctx, STDIN_FILENO, ctx->pipe_in_fd, "pipe output")) {
                 fds[1].fd = -1;
                 in_closed = true;
