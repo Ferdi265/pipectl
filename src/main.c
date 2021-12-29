@@ -6,16 +6,17 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <signal.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <sys/stat.h>
-#include <sys/signal.h>
 
 #define log_error(fmt, ...) fprintf(stderr, "error: " fmt, ##__VA_ARGS__)
 
 typedef struct {
     bool out;
     bool in;
+    bool force;
     char * name;
 
     char * pipe_path;
@@ -24,10 +25,10 @@ typedef struct {
 } ctx_t;
 
 void cleanup(ctx_t * ctx) {
-    free(ctx->pipe_path);
     if (ctx->pipe_out_fd != -1) close(ctx->pipe_out_fd);
     if (ctx->pipe_in_fd != -1) close(ctx->pipe_in_fd);
     if (ctx->out) unlink(ctx->pipe_path);
+    free(ctx->pipe_path);
 }
 
 void exit_fail(ctx_t * ctx) {
@@ -43,11 +44,18 @@ void usage(ctx_t * ctx) {
     printf("  -o, --out     create a pipe and print its contents to stdout\n");
     printf("  -i, --in      write stdin to an open pipe\n");
     printf("  -n, --name N  use a pipe with a custom name instead of the default\n");
+    printf("  -f, --force   force open a pipe even if one already exists\n");
     cleanup(ctx);
     exit(0);
 }
 
 void parse_opt(ctx_t * ctx, int argc, char ** argv) {
+    if (argc > 0) {
+        // skip program name
+        argv++;
+        argc--;
+    }
+
     while (argc > 0 && argv[0][0] == '-') {
         if (strcmp(argv[0], "-h") == 0 || strcmp(argv[0], "--help") == 0) {
             usage(ctx);
@@ -55,6 +63,8 @@ void parse_opt(ctx_t * ctx, int argc, char ** argv) {
             ctx->out = true;
         } else if (strcmp(argv[0], "-i") == 0 || strcmp(argv[0], "--in") == 0) {
             ctx->in = true;
+        } else if (strcmp(argv[0], "-f") == 0 || strcmp(argv[0], "--force") == 0) {
+            ctx->force = true;
         } else if (strcmp(argv[0], "-n") == 0 || strcmp(argv[0], "--name") == 0) {
             if (argc < 2) {
                 fprintf(stderr, "error: parse_opt: option %s requires an argument\n", argv[0]);
@@ -108,11 +118,17 @@ void get_pipe_path(ctx_t * ctx) {
 }
 
 ctx_t * sig_ctx;
-void on_signal_sigint(int signum) {
+void cleanup_on_signal(int signum) {
     (void)signum;
 
     cleanup(sig_ctx);
     exit(0);
+}
+
+void register_signal_handlers(ctx_t * ctx) {
+    sig_ctx = ctx;
+    signal(SIGINT, cleanup_on_signal);
+    signal(SIGPIPE, cleanup_on_signal);
 }
 
 void create_out_pipe(ctx_t * ctx) {
@@ -125,8 +141,6 @@ void create_out_pipe(ctx_t * ctx) {
     int flags = fcntl(ctx->pipe_out_fd, F_GETFL);
     flags |= O_NONBLOCK;
     fcntl(ctx->pipe_out_fd, F_SETFL, flags);
-
-    signal(SIGINT, on_signal_sigint);
 }
 
 void open_in_pipe(ctx_t * ctx) {
@@ -207,6 +221,7 @@ int main(int argc, char ** argv) {
     ctx_t ctx;
     ctx.out = false;
     ctx.in = false;
+    ctx.force = false;
     ctx.name = NULL;
     ctx.pipe_path = NULL;
     ctx.pipe_out_fd = -1;
@@ -214,7 +229,9 @@ int main(int argc, char ** argv) {
 
     parse_opt(&ctx, argc, argv);
     get_pipe_path(&ctx);
+    register_signal_handlers(&ctx);
 
+    if (ctx.force) unlink(ctx.pipe_path);
     if (ctx.out) create_out_pipe(&ctx);
     if (ctx.in) open_in_pipe(&ctx);
 
