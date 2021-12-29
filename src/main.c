@@ -44,7 +44,7 @@ void usage(ctx_t * ctx) {
     printf("  -o, --out     create a pipe and print its contents to stdout\n");
     printf("  -i, --in      write stdin to an open pipe\n");
     printf("  -n, --name N  use a pipe with a custom name instead of the default\n");
-    printf("  -f, --force   force open a pipe even if one already exists\n");
+    printf("  -f, --force   force create a pipe even if one already exists\n");
     cleanup(ctx);
     exit(0);
 }
