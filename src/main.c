@@ -211,14 +211,12 @@ void event_loop(ctx_t * ctx) {
     while ((!out_closed || !in_closed) && poll(fds, 3, -1) >= 0) {
         if (fds[0].revents & POLLIN) {
             pipe_data(ctx, ctx->pipe_out_fd, STDOUT_FILENO, "pipe output");
-            fds[0].revents = 0;
         }
 
         if (fds[1].revents & POLLERR) {
             out_closed = true;
             fds[0].fd = -1;
             fds[1].fd = -1;
-            fds[1].revents = 0;
         }
 
         if (fds[2].revents & POLLIN) {
@@ -232,8 +230,11 @@ void event_loop(ctx_t * ctx) {
         if (fds[2].revents & POLLHUP) {
             in_closed = true;
             fds[2].fd = -1;
-            fds[2].revents = 0;
         }
+
+        fds[0].revents = 0;
+        fds[1].revents = 0;
+        fds[2].revents = 0;
     }
 }
 
