@@ -190,7 +190,10 @@ bool pipe_data(ctx_t * ctx, int from_fd, int to_fd, char * label) {
             return false;
         }
 
-        write(to_fd, buffer, num);
+        num = write(to_fd, buffer, num);
+        if (num == -1) {
+            return false;
+        }
     }
 }
 
