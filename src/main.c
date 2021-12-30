@@ -29,7 +29,7 @@ typedef struct {
 void cleanup(ctx_t * ctx) {
     if (ctx->pipe_out_fd != -1) close(ctx->pipe_out_fd);
     if (ctx->pipe_in_fd != -1) close(ctx->pipe_in_fd);
-    if (ctx->out) unlink(ctx->pipe_path);
+    if (ctx->out && ctx->pipe_path != NULL) unlink(ctx->pipe_path);
     free(ctx->pipe_path);
 }
 
