@@ -195,28 +195,44 @@ bool pipe_data(ctx_t * ctx, int from_fd, int to_fd, char * label) {
 }
 
 void event_loop(ctx_t * ctx) {
-    struct pollfd fds[2];
+    struct pollfd fds[3];
     fds[0].fd = ctx->out ? ctx->pipe_out_fd : -1;
     fds[0].events = POLLIN;
     fds[0].revents = 0;
-    fds[1].fd = ctx->in ? STDIN_FILENO : -1;
-    fds[1].events = POLLIN;
+    fds[1].fd = ctx->out ? STDOUT_FILENO : -1;
+    fds[1].events = 0;
     fds[1].revents = 0;
+    fds[2].fd = ctx->in ? STDIN_FILENO : -1;
+    fds[2].events = POLLIN;
+    fds[2].revents = 0;
 
     bool out_closed = !ctx->out;
     bool in_closed = !ctx->in;
-    while ((!out_closed || !in_closed) && poll(fds, 2, -1) >= 0) {
+    while ((!out_closed || !in_closed) && poll(fds, 3, -1) >= 0) {
         if (fds[0].revents & POLLIN) {
             pipe_data(ctx, ctx->pipe_out_fd, STDOUT_FILENO, "pipe output");
             fds[0].revents = 0;
         }
 
-        if (fds[1].revents & POLLIN) {
-            if (!pipe_data(ctx, STDIN_FILENO, ctx->pipe_in_fd, "pipe output")) {
-                fds[1].fd = -1;
-                in_closed = true;
-            }
+        if (fds[1].revents & POLLERR) {
+            out_closed = true;
+            fds[0].fd = -1;
+            fds[1].fd = -1;
             fds[1].revents = 0;
+        }
+
+        if (fds[2].revents & POLLIN) {
+            if (!pipe_data(ctx, STDIN_FILENO, ctx->pipe_in_fd, "pipe output")) {
+                in_closed = true;
+                fds[2].fd = -1;
+            }
+            fds[2].revents = 0;
+        }
+
+        if (fds[2].revents & POLLHUP) {
+            in_closed = true;
+            fds[2].fd = -1;
+            fds[2].revents = 0;
         }
     }
 }
