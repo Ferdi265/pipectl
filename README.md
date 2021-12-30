@@ -1,7 +1,7 @@
 # `pipectl` - a simple named pipe management utility
 
 `pipectl` is a tool to create and manage short-lived named pipes that can be
-used to e.g. control the a longer-lived program using short commands elsewhere
+used to e.g. control a longer-lived program using short commands from elsewhere
 in the system without needing a complex IPC mechanism such as UNIX domain
 sockets.
 
