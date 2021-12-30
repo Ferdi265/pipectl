@@ -26,11 +26,14 @@ typedef struct {
     int pipe_in_fd;
 } ctx_t;
 
+ctx_t * sig_ctx;
+
 void cleanup(ctx_t * ctx) {
     if (ctx->pipe_out_fd != -1) close(ctx->pipe_out_fd);
     if (ctx->pipe_in_fd != -1) close(ctx->pipe_in_fd);
     if (ctx->out && ctx->pipe_path != NULL) unlink(ctx->pipe_path);
     free(ctx->pipe_path);
+    sig_ctx = NULL;
 }
 
 void exit_fail(ctx_t * ctx) {
@@ -122,7 +125,6 @@ void get_pipe_path(ctx_t * ctx) {
     ctx->pipe_path = path;
 }
 
-ctx_t * sig_ctx;
 void cleanup_on_signal(int signum) {
     (void)signum;
 
