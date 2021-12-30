@@ -11,6 +11,7 @@ sockets.
 - Send something to that program's stdin using `echo "input line" | pipectl -i`
 - Create multiple named pipes simultaneously by naming them with `--name` or `-n`
 - Cleans up after itself when the program exits and removes the pipe
+- Allows synchronizing writes to the pipe with the `--lock` or `-l` option
 
 ![demo screenshot](https://user-images.githubusercontent.com/4077106/147712401-7de95c84-a381-44f8-9b67-74507215f14a.png)
 
@@ -25,6 +26,7 @@ options:
   -i, --in      write stdin to an open pipe
   -n, --name N  use a pipe with a custom name instead of the default
   -f, --force   force create a pipe even if one already exists
+  -l, --lock    use flock(2) to synchronize writes to the pipe
 ```
 
 ## Dependencies

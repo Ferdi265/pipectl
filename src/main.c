@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <sys/stat.h>
+#include <sys/file.h>
 
 #define log_error(fmt, ...) fprintf(stderr, "error: " fmt, ##__VA_ARGS__)
 
@@ -17,6 +18,7 @@ typedef struct {
     bool out;
     bool in;
     bool force;
+    bool lock;
     char * name;
 
     char * pipe_path;
@@ -45,6 +47,7 @@ void usage(ctx_t * ctx) {
     printf("  -i, --in      write stdin to an open pipe\n");
     printf("  -n, --name N  use a pipe with a custom name instead of the default\n");
     printf("  -f, --force   force create a pipe even if one already exists\n");
+    printf("  -l, --lock    use flock(2) to synchronize writes to the pipe\n");
     cleanup(ctx);
     exit(0);
 }
@@ -65,6 +68,8 @@ void parse_opt(ctx_t * ctx, int argc, char ** argv) {
             ctx->in = true;
         } else if (strcmp(argv[0], "-f") == 0 || strcmp(argv[0], "--force") == 0) {
             ctx->force = true;
+        } else if (strcmp(argv[0], "-l") == 0 || strcmp(argv[0], "--lock") == 0) {
+            ctx->lock = true;
         } else if (strcmp(argv[0], "-n") == 0 || strcmp(argv[0], "--name") == 0) {
             if (argc < 2) {
                 fprintf(stderr, "error: parse_opt: option %s requires an argument\n", argv[0]);
@@ -173,6 +178,8 @@ void open_in_pipe(ctx_t * ctx) {
     int flags = fcntl(STDIN_FILENO, F_GETFL);
     flags |= O_NONBLOCK;
     fcntl(STDIN_FILENO, F_SETFL, flags);
+
+    if (ctx->lock) flock(ctx->pipe_in_fd, LOCK_EX);
 }
 
 #define BUFFER_SIZE 4096
@@ -246,6 +253,7 @@ int main(int argc, char ** argv) {
     ctx.out = false;
     ctx.in = false;
     ctx.force = false;
+    ctx.lock = false;
     ctx.name = NULL;
     ctx.pipe_path = NULL;
     ctx.pipe_out_fd = -1;
