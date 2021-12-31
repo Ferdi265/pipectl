@@ -135,6 +135,8 @@ void cleanup_on_signal(int signum) {
 void register_signal_handlers(ctx_t * ctx) {
     sig_ctx = ctx;
     signal(SIGINT, cleanup_on_signal);
+    signal(SIGHUP, cleanup_on_signal);
+    signal(SIGTERM, cleanup_on_signal);
     signal(SIGPIPE, cleanup_on_signal);
 }
 
