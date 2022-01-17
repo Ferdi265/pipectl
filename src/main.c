@@ -231,7 +231,7 @@ bool pipe_data(ctx_t * ctx, int from_fd, int to_fd, char * label) {
         if (num == -1 && errno == EWOULDBLOCK) {
             return true;
         } else if (num == -1) {
-            log_error("error: %s: failed to read data\n", label);
+            log_error("pipe_data: failed to read data from '%s'\n", label);
             exit_fail(ctx);
         } else if (num == 0) {
             return false;
@@ -260,7 +260,7 @@ void event_loop(ctx_t * ctx) {
     bool in_closed = !ctx->in;
     while ((!out_closed || !in_closed) && poll(fds, 3, -1) >= 0) {
         if (fds[0].revents & POLLIN) {
-            pipe_data(ctx, ctx->pipe_out_fd, STDOUT_FILENO, "pipe output");
+            pipe_data(ctx, ctx->pipe_out_fd, STDOUT_FILENO, "fifo");
         }
 
         if (fds[1].revents & POLLERR) {
@@ -270,7 +270,7 @@ void event_loop(ctx_t * ctx) {
         }
 
         if (fds[2].revents & POLLIN) {
-            if (!pipe_data(ctx, STDIN_FILENO, ctx->pipe_in_fd, "pipe output")) {
+            if (!pipe_data(ctx, STDIN_FILENO, ctx->pipe_in_fd, "stdin")) {
                 in_closed = true;
                 fds[2].fd = -1;
             }
