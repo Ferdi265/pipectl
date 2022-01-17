@@ -106,15 +106,27 @@ void parse_opt(ctx_t * ctx, int argc, char ** argv) {
     }
 }
 
+char * get_tmp_dir(void) {
+    char * tmp_dir = NULL;
+
+    if (tmp_dir == NULL) tmp_dir = getenv("XDG_RUNTIME_DIR");
+    if (tmp_dir == NULL) tmp_dir = getenv("TMPDIR");
+    if (tmp_dir == NULL) tmp_dir = "/tmp";
+
+    return tmp_dir;
+}
+
 void get_pipe_path(ctx_t * ctx) {
     int uid = getuid();
+
+    char * tmp_dir = get_tmp_dir();
 
     char * path = NULL;
     int status;
     if (ctx->name == NULL) {
-        status = asprintf(&path, "/tmp/pipectl.%d.pipe", uid);
+        status = asprintf(&path, "%s/pipectl.%d.pipe", tmp_dir, uid);
     } else {
-        status = asprintf(&path, "/tmp/pipectl.%d.%s.pipe", uid, ctx->name);
+        status = asprintf(&path, "%s/pipectl.%d.%s.pipe", tmp_dir, uid, ctx->name);
     }
 
     if (status == -1) {
