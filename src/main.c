@@ -76,7 +76,7 @@ void parse_opt(ctx_t * ctx, int argc, char ** argv) {
             ctx->lock = true;
         } else if (strcmp(argv[0], "-n") == 0 || strcmp(argv[0], "--name") == 0) {
             if (argc < 2) {
-                fprintf(stderr, "error: parse_opt: option %s requires an argument\n", argv[0]);
+                log_error("parse_opt: option %s requires an argument\n", argv[0]);
                 exit_fail(ctx);
             }
 
@@ -110,7 +110,7 @@ void parse_opt(ctx_t * ctx, int argc, char ** argv) {
             argc--;
             break;
         } else {
-            log_error("error: invalid option %s\n", argv[0]);
+            log_error("invalid option %s\n", argv[0]);
             exit_fail(ctx);
         }
 
