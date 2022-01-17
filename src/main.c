@@ -49,6 +49,7 @@ void usage(ctx_t * ctx) {
     printf("  -o, --out     create a pipe and print its contents to stdout\n");
     printf("  -i, --in      write stdin to an open pipe\n");
     printf("  -n, --name N  use a pipe with a custom name instead of the default\n");
+    printf("  -p, --path P  use a custom path P for the pipe created by pipectl\n");
     printf("  -f, --force   force create a pipe even if one already exists\n");
     printf("  -l, --lock    use flock(2) to synchronize writes to the pipe\n");
     cleanup(ctx);
@@ -85,6 +86,22 @@ void parse_opt(ctx_t * ctx, int argc, char ** argv) {
             }
 
             ctx->name = argv[1];
+
+            argv++;
+            argc--;
+        } else if (strcmp(argv[0], "-p") == 0 || strcmp(argv[0], "--path") == 0) {
+            if (argc < 2) {
+                log_error("parse_opt: option %s requires an argument\n", argv[0]);
+                exit_fail(ctx);
+            }
+
+            char * path = strdup(argv[1]);
+            if (path == NULL) {
+                log_error("parse_opt: failed to allocate copy of custom path '%s'\n", argv[1]);
+                exit_fail(ctx);
+            }
+
+            ctx->pipe_path = path;
 
             argv++;
             argc--;
@@ -283,9 +300,9 @@ int main(int argc, char ** argv) {
     ctx.pipe_in_fd = -1;
 
     parse_opt(&ctx, argc, argv);
-    get_pipe_path(&ctx);
     register_signal_handlers(&ctx);
 
+    if (ctx.pipe_path == NULL) get_pipe_path(&ctx);
     if (ctx.out) create_out_pipe(&ctx);
     if (ctx.in) open_in_pipe(&ctx);
 
