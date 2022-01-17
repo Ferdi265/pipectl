@@ -76,12 +76,12 @@ void parse_opt(ctx_t * ctx, int argc, char ** argv) {
             ctx->lock = true;
         } else if (strcmp(argv[0], "-n") == 0 || strcmp(argv[0], "--name") == 0) {
             if (argc < 2) {
-                log_error("parse_opt: option %s requires an argument\n", argv[0]);
+                log_error("option '%s' requires an argument\n", argv[0]);
                 exit_fail(ctx);
             }
 
             if (strcspn(argv[1], "/") != strlen(argv[1])) {
-                log_error("pipe name may not contain slashes\n");
+                log_error("option '%s': pipe name may not contain slashes\n", argv[0]);
                 exit_fail(ctx);
             }
 
@@ -91,13 +91,13 @@ void parse_opt(ctx_t * ctx, int argc, char ** argv) {
             argc--;
         } else if (strcmp(argv[0], "-p") == 0 || strcmp(argv[0], "--path") == 0) {
             if (argc < 2) {
-                log_error("parse_opt: option %s requires an argument\n", argv[0]);
+                log_error("option '%s' requires an argument\n", argv[0]);
                 exit_fail(ctx);
             }
 
             char * path = strdup(argv[1]);
             if (path == NULL) {
-                log_error("parse_opt: failed to allocate copy of custom path '%s'\n", argv[1]);
+                log_error("option '%s': failed to allocate copy of custom path '%s'\n", argv[0], argv[1]);
                 exit_fail(ctx);
             }
 
@@ -110,7 +110,7 @@ void parse_opt(ctx_t * ctx, int argc, char ** argv) {
             argc--;
             break;
         } else {
-            log_error("invalid option %s\n", argv[0]);
+            log_error("invalid option '%s'\n", argv[0]);
             exit_fail(ctx);
         }
 
@@ -147,7 +147,7 @@ void get_pipe_path(ctx_t * ctx) {
     }
 
     if (status == -1) {
-        log_error("failed to format pipe path\n");
+        log_error("failed to allocate formatted pipe path\n");
         exit_fail(ctx);
     }
 
@@ -231,7 +231,7 @@ bool pipe_data(ctx_t * ctx, int from_fd, int to_fd, char * label) {
         if (num == -1 && errno == EWOULDBLOCK) {
             return true;
         } else if (num == -1) {
-            log_error("pipe_data: failed to read data from '%s'\n", label);
+            log_error("failed to read data from %s: %s\n", label, strerror(errno));
             exit_fail(ctx);
         } else if (num == 0) {
             return false;
@@ -260,7 +260,7 @@ void event_loop(ctx_t * ctx) {
     bool in_closed = !ctx->in;
     while ((!out_closed || !in_closed) && poll(fds, 3, -1) >= 0) {
         if (fds[0].revents & POLLIN) {
-            pipe_data(ctx, ctx->pipe_out_fd, STDOUT_FILENO, "fifo");
+            pipe_data(ctx, ctx->pipe_out_fd, STDOUT_FILENO, "pipe");
         }
 
         if (fds[1].revents & POLLERR) {
