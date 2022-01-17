@@ -10,6 +10,7 @@ sockets.
 - Create a named pipe using `pipectl -o | long-running-program`
 - Send something to that program's stdin using `echo "input line" | pipectl -i`
 - Create multiple named pipes simultaneously by naming them with `--name` or `-n`
+- Create a named pipe at a custom path by using `--path` or `-p`
 - Cleans up after itself when the program exits and removes the pipe
 - Allows synchronizing writes to the pipe with the `--lock` or `-l` option
 
@@ -25,9 +26,16 @@ options:
   -o, --out     create a pipe and print its contents to stdout
   -i, --in      write stdin to an open pipe
   -n, --name N  use a pipe with a custom name instead of the default
+  -p, --path P  use a custom path P for the pipe created by pipectl
   -f, --force   force create a pipe even if one already exists
   -l, --lock    use flock(2) to synchronize writes to the pipe
 ```
+
+## Environment Variables
+
+`pipectl` will use the environment variables `XDG_RUNTIME_PATH` and `TMPDIR` to
+discover the preferred directory for the named pipes created by it. If both are
+unset, `pipectl` falls back to placing the pipe in `/tmp`.
 
 ## Dependencies
 
