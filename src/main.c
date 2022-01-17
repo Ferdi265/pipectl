@@ -164,6 +164,13 @@ int open_pipe(ctx_t * ctx, int mode) {
 }
 
 void create_out_pipe(ctx_t * ctx) {
+    if (ctx->force) {
+        if (unlink(ctx->pipe_path) == -1 && errno != ENOENT) {
+            log_error("could not remove old pipe at '%s': %s\n", ctx->pipe_path, strerror(errno));
+            exit_fail(ctx);
+        }
+    }
+
     if (mkfifo(ctx->pipe_path, 0666) == -1) {
         log_error("could not create pipe at '%s': %s\n", ctx->pipe_path, strerror(errno));
         exit_fail(ctx);
@@ -267,7 +274,6 @@ int main(int argc, char ** argv) {
     get_pipe_path(&ctx);
     register_signal_handlers(&ctx);
 
-    if (ctx.force) unlink(ctx.pipe_path);
     if (ctx.out) create_out_pipe(&ctx);
     if (ctx.in) open_in_pipe(&ctx);
 
