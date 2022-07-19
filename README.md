@@ -40,6 +40,7 @@ unset, `pipectl` falls back to placing the pipe in `/tmp`.
 ## Dependencies
 
 - `CMake`
+- `scdoc` (for man pages)
 
 ## Building
 
