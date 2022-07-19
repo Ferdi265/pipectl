@@ -7,9 +7,8 @@ project(pipectl C)
 option(INSTALL_DOCUMENTATION "install wl-mirror manual pages" OFF)
 
 # manual pages
-find_program(SCDOC scdoc)
-if (SCDOC)
-    add_subdirectory(man)
+add_subdirectory(man)
+if (${BUILD_DOCUMENTATION})
     build_scdoc_man_page(pipectl 1)
 endif()
 
@@ -21,6 +20,6 @@ target_compile_options(pipectl PRIVATE -Wall -Wextra)
 # installation rule
 install(TARGETS pipectl DESTINATION "${CMAKE_INSTALL_PREFIX}/bin")
 
-if (SCDOC AND ${INSTALL_DOCUMENTATION})
+if (${INSTALL_DOCUMENTATION})
     install_scdoc_man_page(pipectl 1)
 endif()
