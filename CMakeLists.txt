@@ -17,8 +17,10 @@ file(GLOB sources src/*.c)
 add_executable(pipectl ${sources})
 target_compile_options(pipectl PRIVATE -Wall -Wextra)
 
-# installation rule
-install(TARGETS pipectl DESTINATION "${CMAKE_INSTALL_PREFIX}/bin")
+# installation rules
+include(GNUInstallDirs)
+
+install(TARGETS pipectl DESTINATION "${CMAKE_INSTALL_BINDIR}")
 
 if (${INSTALL_DOCUMENTATION})
     install_scdoc_man_page(pipectl 1)
