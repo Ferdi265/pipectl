@@ -189,6 +189,10 @@ int open_pipe(ctx_t * ctx, int mode) {
         exit_fail(ctx);
     }
 
+    int flags = fcntl(ctx->pipe_out_fd, F_GETFL);
+    flags |= O_NONBLOCK;
+    fcntl(ctx->pipe_out_fd, F_SETFL, flags);
+
     return fd;
 }
 
@@ -206,18 +210,10 @@ void create_out_pipe(ctx_t * ctx) {
     }
 
     ctx->pipe_out_fd = open_pipe(ctx, O_RDWR);
-
-    int flags = fcntl(ctx->pipe_out_fd, F_GETFL);
-    flags |= O_NONBLOCK;
-    fcntl(ctx->pipe_out_fd, F_SETFL, flags);
 }
 
 void open_in_pipe(ctx_t * ctx) {
     ctx->pipe_in_fd = open_pipe(ctx, O_WRONLY);
-
-    int flags = fcntl(STDIN_FILENO, F_GETFL);
-    flags |= O_NONBLOCK;
-    fcntl(STDIN_FILENO, F_SETFL, flags);
 
     if (ctx->lock) flock(ctx->pipe_in_fd, LOCK_EX);
 }
