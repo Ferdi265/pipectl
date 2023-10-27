@@ -50,3 +50,9 @@ unset, `pipectl` falls back to placing the pipe in `/tmp`.
 ## Files
 
 - `src/main.c`: the whole program
+
+## License
+
+This project is licensed under the GNU GPL version 3.0 or later (SPDX
+[GPL-3.0-or-later](https://spdx.org/licenses/GPL-3.0-or-later.html)). The full
+license text can also be found in the [LICENSE](/LICENSE) file.
