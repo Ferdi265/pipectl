@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdnoreturn.h>
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
@@ -36,7 +37,7 @@ void cleanup(ctx_t * ctx) {
     sig_ctx = NULL;
 }
 
-void exit_fail(ctx_t * ctx) {
+noreturn void exit_fail(ctx_t * ctx) {
     cleanup(ctx);
     exit(1);
 }
