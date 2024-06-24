@@ -290,20 +290,26 @@ void event_loop(ctx_t * ctx) {
     }
 }
 
+void init(ctx_t * ctx) {
+    ctx->out = false;
+    ctx->in = false;
+    ctx->force = false;
+    ctx->lock = false;
+    ctx->verbose = false;
+    ctx->name = NULL;
+    ctx->pipe_path = NULL;
+    ctx->pipe_out_fd = -1;
+    ctx->pipe_in_fd = -1;
+
+    register_signal_handlers(ctx);
+}
+
+
 int main(int argc, char ** argv) {
     ctx_t ctx;
-    ctx.out = false;
-    ctx.in = false;
-    ctx.force = false;
-    ctx.lock = false;
-    ctx.verbose = false;
-    ctx.name = NULL;
-    ctx.pipe_path = NULL;
-    ctx.pipe_out_fd = -1;
-    ctx.pipe_in_fd = -1;
+    init(&ctx);
 
     parse_opt(&ctx, argc, argv);
-    register_signal_handlers(&ctx);
 
     if (ctx.pipe_path == NULL) get_pipe_path(&ctx);
     if (ctx.out) create_out_pipe(&ctx);
