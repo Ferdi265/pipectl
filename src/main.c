@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 #include <sys/file.h>
 
+#define log_debug(ctx, fmt, ...) if ((ctx)->verbose) fprintf(stderr, "debug: " fmt, ##__VA_ARGS__)
 #define log_error(fmt, ...) fprintf(stderr, "error: " fmt, ##__VA_ARGS__)
 
 typedef struct {
@@ -20,6 +21,7 @@ typedef struct {
     bool in;
     bool force;
     bool lock;
+    bool verbose;
     char * name;
 
     char * pipe_path;
@@ -53,6 +55,7 @@ void usage(ctx_t * ctx) {
     printf("  -p, --path P  use a custom path P for the pipe created by pipectl\n");
     printf("  -f, --force   force create a pipe even if one already exists\n");
     printf("  -l, --lock    use flock(2) to synchronize writes to the pipe\n");
+    printf("  -v, --verbose print debug messages on stderr\n");
     cleanup(ctx);
     exit(0);
 }
@@ -75,6 +78,8 @@ void parse_opt(ctx_t * ctx, int argc, char ** argv) {
             ctx->force = true;
         } else if (strcmp(argv[0], "-l") == 0 || strcmp(argv[0], "--lock") == 0) {
             ctx->lock = true;
+        } else if (strcmp(argv[0], "-v") == 0 || strcmp(argv[0], "--verbose") == 0) {
+            ctx->verbose = true;
         } else if (strcmp(argv[0], "-n") == 0 || strcmp(argv[0], "--name") == 0) {
             if (argc < 2) {
                 log_error("option '%s' requires an argument\n", argv[0]);
@@ -291,6 +296,7 @@ int main(int argc, char ** argv) {
     ctx.in = false;
     ctx.force = false;
     ctx.lock = false;
+    ctx.verbose = false;
     ctx.name = NULL;
     ctx.pipe_path = NULL;
     ctx.pipe_out_fd = -1;
