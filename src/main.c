@@ -16,6 +16,16 @@
 #define log_debug(ctx, fmt, ...) if ((ctx)->verbose) fprintf(stderr, "debug: " fmt, ##__VA_ARGS__)
 #define log_error(fmt, ...) fprintf(stderr, "error: " fmt, ##__VA_ARGS__)
 
+#define ARRAY_SIZE(arr) ((sizeof (arr)) / (sizeof ((arr)[0])))
+
+#define BUFFER_SIZE 4096
+
+typedef struct {
+    char * data;
+    size_t size;
+    size_t capacity;
+} buf_t;
+
 typedef struct {
     bool out;
     bool in;
@@ -25,6 +35,8 @@ typedef struct {
     char * name;
 
     char * pipe_path;
+    buf_t pipe_out_buffer;
+    buf_t pipe_in_buffer;
     int pipe_out_fd;
     int pipe_in_fd;
 } ctx_t;
@@ -36,6 +48,8 @@ void cleanup(ctx_t * ctx) {
     if (ctx->pipe_in_fd != -1) close(ctx->pipe_in_fd);
     if (ctx->out && ctx->pipe_path != NULL) unlink(ctx->pipe_path);
     free(ctx->pipe_path);
+    free(ctx->pipe_out_buffer.data);
+    free(ctx->pipe_in_buffer.data);
     sig_ctx = NULL;
 }
 
@@ -175,6 +189,16 @@ void register_signal_handlers(ctx_t * ctx) {
     signal(SIGPIPE, cleanup_on_signal);
 }
 
+void buf_allocate(ctx_t * ctx, buf_t * buffer, char * label) {
+    buffer->data = malloc(sizeof (char) * BUFFER_SIZE);
+    if (buffer->data == NULL) {
+        log_error("failed to allocate %s buffer\n", label);
+        exit_fail(ctx);
+    }
+
+    buffer->capacity = BUFFER_SIZE;
+}
+
 int open_pipe(ctx_t * ctx, int mode) {
     int fd = open(ctx->pipe_path, mode);
     if (fd == -1) {
@@ -195,6 +219,7 @@ int open_pipe(ctx_t * ctx, int mode) {
         exit_fail(ctx);
     }
 
+    // make reading from and writing to pipe nonblocking
     int flags = fcntl(ctx->pipe_out_fd, F_GETFL);
     flags |= O_NONBLOCK;
     fcntl(ctx->pipe_out_fd, F_SETFL, flags);
@@ -216,78 +241,162 @@ void create_out_pipe(ctx_t * ctx) {
     }
 
     ctx->pipe_out_fd = open_pipe(ctx, O_RDWR);
+
+    buf_allocate(ctx, &ctx->pipe_out_buffer, "output");
+
+    // make writing to stdout nonblocking
+    int flags = fcntl(STDOUT_FILENO, F_GETFL);
+    flags |= O_NONBLOCK;
+    fcntl(STDOUT_FILENO, F_SETFL, flags);
 }
 
 void open_in_pipe(ctx_t * ctx) {
     ctx->pipe_in_fd = open_pipe(ctx, O_WRONLY);
 
     if (ctx->lock) flock(ctx->pipe_in_fd, LOCK_EX);
+
+    buf_allocate(ctx, &ctx->pipe_in_buffer, "input");
+
+    // make reading from stdin nonblocking
+    int flags = fcntl(STDIN_FILENO, F_GETFL);
+    flags |= O_NONBLOCK;
+    fcntl(STDIN_FILENO, F_SETFL, flags);
 }
 
-#define BUFFER_SIZE 4096
-bool pipe_data(ctx_t * ctx, int from_fd, int to_fd, char * label) {
-    char buffer[BUFFER_SIZE];
+bool buf_can_read(buf_t * buffer) {
+    return buffer->size < buffer->capacity;
+}
 
-    while (true) {
-        ssize_t num = read(from_fd, buffer, sizeof buffer);
-        if (num == -1 && errno == EWOULDBLOCK) {
-            return true;
-        } else if (num == -1) {
-            log_error("failed to read data from %s: %s\n", label, strerror(errno));
-            exit_fail(ctx);
-        } else if (num == 0) {
-            return false;
-        }
+bool buf_can_write(buf_t * buffer) {
+    return buffer->size > 0;
+}
 
-        num = write(to_fd, buffer, num);
-        if (num == -1) {
-            return false;
-        }
+ssize_t pipe_to_buffer(ctx_t * ctx, int from_fd, buf_t * to_buffer, char * label) {
+    ssize_t num = read(from_fd, to_buffer->data + to_buffer->size, to_buffer->capacity - to_buffer->size);
+    if (num == -1 && errno == EWOULDBLOCK) {
+        log_debug(ctx, "reading from %s would block\n", label);
+    } else if (num == -1) {
+        log_error("failed to read data from %s: %s\n", label, strerror(errno));
+        exit_fail(ctx);
+    } else {
+        to_buffer->size += num;
     }
+
+    return num;
+}
+
+ssize_t pipe_from_buffer(ctx_t * ctx, buf_t * from_buffer, int to_fd, char * label) {
+    ssize_t num = write(to_fd, from_buffer->data, from_buffer->size);
+    if (num == -1 && errno == EWOULDBLOCK) {
+        log_debug(ctx, "writing to %s would block\n", label);
+    } else if (num == -1) {
+        log_error("failed to write data to %s: %s\n", label, strerror(errno));
+        exit_fail(ctx);
+    } else {
+        from_buffer->size -= num;
+        memmove(from_buffer->data, from_buffer->data + num, from_buffer->size);
+    }
+
+    return num;
 }
 
 void event_loop(ctx_t * ctx) {
-    struct pollfd fds[3];
-    fds[0].fd = ctx->out ? ctx->pipe_out_fd : -1;
-    fds[0].events = POLLIN;
-    fds[0].revents = 0;
-    fds[1].fd = ctx->out ? STDOUT_FILENO : -1;
-    fds[1].events = 0;
-    fds[1].revents = 0;
-    fds[2].fd = ctx->in ? STDIN_FILENO : -1;
-    fds[2].events = POLLIN;
-    fds[2].revents = 0;
+    struct pollfd pollfds[5];
+    struct pollfd * poll_stdin = &pollfds[0];
+    struct pollfd * poll_pipe_in = &pollfds[1];
+    struct pollfd * poll_pipe_out = &pollfds[2];
+    struct pollfd * poll_stdout = &pollfds[3];
+    struct pollfd * poll_stdout_closed = &pollfds[4];
+
+    poll_stdin->revents = 0;
+    poll_pipe_in->revents = 0;
+    poll_pipe_out->revents = 0;
+    poll_stdout->revents = 0;
+    poll_stdout_closed->revents = 0;
 
     bool out_closed = !ctx->out;
     bool in_closed = !ctx->in;
-    while ((!out_closed || !in_closed) && poll(fds, 3, -1) >= 0) {
-        if (fds[0].revents & POLLIN) {
-            pipe_data(ctx, ctx->pipe_out_fd, STDOUT_FILENO, "pipe");
-        }
-
-        if (fds[1].revents & POLLERR) {
-            out_closed = true;
-            fds[0].fd = -1;
-            fds[1].fd = -1;
-        }
-
-        if (fds[2].revents & POLLIN) {
-            if (!pipe_data(ctx, STDIN_FILENO, ctx->pipe_in_fd, "stdin")) {
-                in_closed = true;
-                fds[2].fd = -1;
-            }
-            fds[2].revents = 0;
-        }
-
-        if (fds[2].revents & POLLHUP) {
+    bool in_pending = false;
+    bool closing = false;
+    do {
+        // --- stdin -----------------------------------------------------------
+        if (poll_stdin->revents & (POLLERR | POLLHUP)) {
+            log_debug(ctx, "stdin closed\n");
             in_closed = true;
-            fds[2].fd = -1;
         }
 
-        fds[0].revents = 0;
-        fds[1].revents = 0;
-        fds[2].revents = 0;
-    }
+        if (poll_stdin->revents & POLLIN) {
+            log_debug(ctx, "reading from stdin\n");
+            if (pipe_to_buffer(ctx, poll_stdin->fd, &ctx->pipe_in_buffer, "stdin") == 0) {
+                log_debug(ctx, "stdin closed due to empty read\n");
+                in_closed = true;
+            }
+        }
+
+        poll_stdin->fd = !in_closed && buf_can_read(&ctx->pipe_in_buffer) ? STDIN_FILENO : -1;
+        poll_stdin->events = POLLIN;
+        poll_stdin->revents = 0;
+
+        // --- pipe_in ---------------------------------------------------------
+        if (poll_pipe_in->revents & POLLERR) {
+            log_error("failed to write to pipe: POLLERR\n");
+            exit_fail(ctx);
+        }
+
+        if (poll_pipe_in->revents & POLLOUT) {
+            log_debug(ctx, "writing to pipe\n");
+            pipe_from_buffer(ctx, &ctx->pipe_in_buffer, poll_pipe_in->fd, "pipe");
+        }
+
+        in_pending = buf_can_write(&ctx->pipe_in_buffer);
+        poll_pipe_in->fd = in_pending ? ctx->pipe_in_fd : -1;
+        poll_pipe_in->events = POLLOUT;
+        poll_pipe_in->revents = 0;
+
+        // --- pipe_out --------------------------------------------------------
+        if (poll_pipe_out->revents & POLLERR) {
+            log_error("failed to read from pipe: POLLERR\n");
+            exit_fail(ctx);
+        }
+
+        if (poll_pipe_out->revents & POLLIN) {
+            log_debug(ctx, "reading from pipe\n");
+            pipe_to_buffer(ctx, poll_pipe_out->fd, &ctx->pipe_out_buffer, "pipe");
+        }
+
+        poll_pipe_out->fd = !out_closed && buf_can_read(&ctx->pipe_out_buffer) ? ctx->pipe_out_fd : -1;
+        poll_pipe_out->events = POLLIN;
+        poll_pipe_out->revents = 0;
+
+        // --- stdout ----------------------------------------------------------
+        if (poll_stdout->revents & POLLOUT) {
+            log_debug(ctx, "writing to stdout\n");
+            pipe_from_buffer(ctx, &ctx->pipe_out_buffer, poll_stdout->fd, "stdout");
+        }
+
+        poll_stdout->fd = !out_closed && buf_can_write(&ctx->pipe_out_buffer) ? STDOUT_FILENO : -1;
+        poll_stdout->events = POLLOUT;
+        poll_stdout->revents = 0;
+
+        // --- stdout_closed ---------------------------------------------------
+        if (poll_stdout_closed->revents & POLLERR) {
+            log_debug(ctx, "stdout closed\n");
+            out_closed = true;
+        }
+
+        poll_stdout_closed->fd = !out_closed ? STDOUT_FILENO : -1;
+        poll_stdout_closed->events = 0;
+        poll_stdout_closed->revents = 0;
+
+        // --- closing flag ----------------------------------------------------
+        if (ctx->out) {
+            closing = out_closed;
+        } else {
+            closing = in_closed && !in_pending;
+        }
+
+        log_debug(ctx, "polling\n");
+    } while (!closing && poll(pollfds, ARRAY_SIZE(pollfds), -1) >= 0);
 }
 
 void init(ctx_t * ctx) {
