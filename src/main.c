@@ -407,6 +407,12 @@ void init(ctx_t * ctx) {
     ctx->verbose = false;
     ctx->name = NULL;
     ctx->pipe_path = NULL;
+    ctx->pipe_in_buffer.data = NULL;
+    ctx->pipe_in_buffer.size = 0;
+    ctx->pipe_in_buffer.capacity = 0;
+    ctx->pipe_out_buffer.data = NULL;
+    ctx->pipe_out_buffer.size = 0;
+    ctx->pipe_out_buffer.capacity = 0;
     ctx->pipe_out_fd = -1;
     ctx->pipe_in_fd = -1;
 
