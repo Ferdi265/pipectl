@@ -38,6 +38,13 @@ options:
 discover the preferred directory for the named pipes created by it. If both are
 unset, `pipectl` falls back to placing the pipe in `/tmp`.
 
+## Installation
+
+`pipectl` is already packaged in many distros and can be installed via the
+package manager:
+
+[![Packaging Status](https://repology.org/badge/vertical-allrepos/pipectl.svg?columns=3)](https://repology.org/project/pipectl/versions)
+
 ## Dependencies
 
 - `CMake`
