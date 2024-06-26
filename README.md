@@ -29,6 +29,7 @@ options:
   -p, --path P  use a custom path P for the pipe created by pipectl
   -f, --force   force create a pipe even if one already exists
   -l, --lock    use flock(2) to synchronize writes to the pipe
+  -v, --verbose print debug messages on stderr
 ```
 
 ## Environment Variables
