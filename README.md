@@ -53,7 +53,7 @@ package manager:
 ## Building
 
 - Run `cmake -B build`
-- Run `make -C build`
+- Run `cmake --build build`
 
 ## Files
 
