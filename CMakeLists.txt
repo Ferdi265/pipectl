@@ -4,7 +4,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 project(pipectl C)
 
 # options
-option(INSTALL_DOCUMENTATION "install wl-mirror manual pages" OFF)
+option(INSTALL_DOCUMENTATION "install pipectl manual pages" OFF)
 
 # manual pages
 add_subdirectory(man)
