@@ -19,6 +19,7 @@ function(build_scdoc_man_page name section)
     set(man-bin "${CMAKE_BINARY_DIR}/man/${name}.${section}")
     add_custom_command(
         OUTPUT "${man-bin}"
+        MAIN_DEPENDENCY "${man-src}"
         COMMAND scdoc < "${man-src}" > "${man-bin}"
     )
     add_custom_target(gen-man-${name}-${section} ALL DEPENDS "${man-bin}")
