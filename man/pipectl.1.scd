@@ -78,7 +78,7 @@ where *UID* is the real user id of the *pipectl* process (see *getuid*(3)).
 
 # AUTHORS
 
-Maintained by Ferdinand Bachmann <theferdi265@gmail.com>. More information on *pipectl* can be found at <https://github.com/Ferdi265/pipectl>.
+Maintained by Ferdinand Bachmann <ferdinand.bachmann@yrlf.at>. More information on *pipectl* can be found at <https://github.com/Ferdi265/pipectl>.
 
 # SEE ALSO
 
