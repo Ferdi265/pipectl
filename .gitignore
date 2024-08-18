@@ -1,4 +1,2 @@
 build/
-pipectl-*.tar.gz
-pipectl-*.tar.gz.sig
-pipectl-*.tar.gz.asc
+dist/

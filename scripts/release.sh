@@ -47,12 +47,13 @@ echo "- adding version file"
 echo "$TAG" > "pipectl-$VERSION/version.txt"
 
 echo "- creating archive"
-tar caf "$REPODIR/pipectl-$VERSION.tar.gz" "pipectl-$VERSION/"
+mkdir -p "$REPODIR/dist"
+tar caf "$REPODIR/dist/pipectl-$VERSION.tar.gz" "pipectl-$VERSION/"
 
 if [[ ! -z "${SIGKEY+z}" ]]; then
     echo "- signing archive"
-    gpg --yes -u "$SIGKEY" -o "$REPODIR/pipectl-$VERSION.tar.gz.asc" --armor --detach-sig "$REPODIR/pipectl-$VERSION.tar.gz"
-    gpg --yes -o "$REPODIR/pipectl-$VERSION.tar.gz.sig" --dearmor "$REPODIR/pipectl-$VERSION.tar.gz.asc"
+    gpg --yes -u "$SIGKEY" -o "$REPODIR/dist/pipectl-$VERSION.tar.gz.asc" --armor --detach-sig "$REPODIR/dist/pipectl-$VERSION.tar.gz"
+    gpg --yes -o "$REPODIR/dist/pipectl-$VERSION.tar.gz.sig" --dearmor "$REPODIR/dist/pipectl-$VERSION.tar.gz.asc"
 else
     echo "- skipping signing archive (SIGKEY not set)"
 fi
