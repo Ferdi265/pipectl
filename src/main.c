@@ -39,11 +39,15 @@ typedef struct {
     buf_t pipe_in_buffer;
     int pipe_out_fd;
     int pipe_in_fd;
+    bool pipe_dangling;
 } ctx_t;
 
 ctx_t * sig_ctx;
 
 bool pipe_needs_cleanup(ctx_t * ctx) {
+    // always remove the pipe if we tried to create it but failed to open it
+    if (ctx->pipe_dangling) return true;
+    // otherwise, perform stat check to see if we should remove it
     if (!ctx->out || ctx->pipe_path == NULL || ctx->pipe_out_fd == -1) return false;
 
     struct stat stat;
@@ -253,7 +257,11 @@ void create_out_pipe(ctx_t * ctx) {
         exit_fail(ctx);
     }
 
+    // mark the pipe as dangling before trying to open it
+    // to ensure it's removed if we fail
+    ctx->pipe_dangling = true;
     ctx->pipe_out_fd = open_pipe(ctx, O_RDWR);
+    ctx->pipe_dangling = false;
 
     buf_allocate(ctx, &ctx->pipe_out_buffer, "output");
 
@@ -428,6 +436,7 @@ void init(ctx_t * ctx) {
     ctx->pipe_out_buffer.capacity = 0;
     ctx->pipe_out_fd = -1;
     ctx->pipe_in_fd = -1;
+    ctx->pipe_dangling = false;
 
     register_signal_handlers(ctx);
 }
