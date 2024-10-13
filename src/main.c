@@ -43,10 +43,23 @@ typedef struct {
 
 ctx_t * sig_ctx;
 
+bool pipe_needs_cleanup(ctx_t * ctx) {
+    if (!ctx->out || ctx->pipe_path == NULL || ctx->pipe_out_fd == -1) return false;
+
+    struct stat stat;
+    if (fstat(ctx->pipe_out_fd, &stat) == -1) {
+        log_error("failed to stat pipe fd: %s\n", strerror(errno));
+        return false;
+    }
+
+    // pipe needs cleanup as long as there are still links
+    return stat.st_nlink != 0;
+}
+
 void cleanup(ctx_t * ctx) {
+    if (pipe_needs_cleanup(ctx)) unlink(ctx->pipe_path);
     if (ctx->pipe_out_fd != -1) close(ctx->pipe_out_fd);
     if (ctx->pipe_in_fd != -1) close(ctx->pipe_in_fd);
-    if (ctx->out && ctx->pipe_path != NULL) unlink(ctx->pipe_path);
     free(ctx->pipe_path);
     free(ctx->pipe_out_buffer.data);
     free(ctx->pipe_in_buffer.data);
